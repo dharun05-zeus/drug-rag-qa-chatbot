@@ -1,5 +1,5 @@
 import React from 'react';
-import { Database, ShieldAlert, FileText, X } from 'lucide-react';
+import { Database, ShieldAlert, FileText, X, Check, Upload } from 'lucide-react';
 
 /**
  * Sidebar Component
@@ -37,15 +37,28 @@ function Sidebar({ isOpen, onClose, documents = [] }) {
                 No active documents found. Place PDFs in backend/data/ and run ingest.py
               </div>
             ) : (
-              documents.map((doc, idx) => (
-                <div key={idx} className="doc-item">
-                  <FileText size={14} className="doc-icon" />
+              <>
+                {documents.map((doc, idx) => (
+                  <div key={idx} className="doc-item">
+                    <FileText size={14} className="doc-icon" />
+                    <div className="doc-info">
+                      <span className="doc-name">{doc.name}</span>
+                      <span className="doc-meta">{doc.pages} pages indexed</span>
+                    </div>
+                    <span className="doc-status-badge" title="Active and loaded in memory">
+                      <Check size={9} /> active
+                    </span>
+                  </div>
+                ))}
+                {/* Interactive mock upload area */}
+                <div className="doc-item doc-item-upload" title="Simulated File Uploader">
+                  <Upload size={13} className="upload-icon" />
                   <div className="doc-info">
-                    <span className="doc-name">{doc.name}</span>
-                    <span className="doc-meta">{doc.pages} pages indexed</span>
+                    <span className="doc-name upload-text">Upload drug insert...</span>
+                    <span className="doc-meta">PDF size up to 50MB</span>
                   </div>
                 </div>
-              ))
+              </>
             )}
           </div>
         </section>

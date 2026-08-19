@@ -818,3 +818,83 @@
   padding: 12px 0;
   line-height: 1.4;
 }
+
+/* 11. Production UI Polish (Copy-Clipboard, Active Badges & Mock Uploader) */
+.doc-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background-color: rgba(22, 163, 74, 0.15);
+  color: #4ade80;
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: auto;
+  letter-spacing: 0.5px;
+  border: 1px solid rgba(74, 222, 128, 0.2);
+}
+
+.doc-item-upload {
+  background-color: transparent !important;
+  border: 1px dashed #475569 !important;
+  cursor: pointer;
+  transition: var(--transition);
+  margin-top: 4px;
+}
+
+.doc-item-upload:hover {
+  border-color: var(--primary) !important;
+  background-color: rgba(13, 148, 136, 0.05) !important;
+}
+
+.doc-item-upload:hover .upload-icon {
+  color: var(--primary);
+}
+
+.doc-item-upload:hover .doc-name.upload-text {
+  color: #f1f5f9;
+}
+
+.upload-icon {
+  color: #64748b;
+  transition: var(--transition);
+}
+
+.doc-name.upload-text {
+  color: #94a3b8;
+  font-style: italic;
+  transition: var(--transition);
+}
+
+/* Copy Answer Hover Button */
+.copy-bubble-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+}
+
+.message-bubble:hover .copy-bubble-btn {
+  opacity: 1;
+}
+
+.copy-bubble-btn:hover {
+  background-color: #f1f5f9;
+  color: var(--primary);
+}
+
+.copied-icon {
+  color: #16a34a !important;
+}

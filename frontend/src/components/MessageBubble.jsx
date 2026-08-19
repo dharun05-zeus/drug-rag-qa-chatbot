@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, AlertTriangle, ChevronDown, ChevronUp, BarChart2 } from 'lucide-react';
+import { FileText, AlertTriangle, ChevronDown, ChevronUp, BarChart2, Copy, Check } from 'lucide-react';
 
 /**
  * MessageBubble Component
@@ -13,6 +13,13 @@ function MessageBubble({ msg }) {
   
   const [activeTooltip, setActiveTooltip] = useState(null);
   const [showDebug, setShowDebug] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(msg.text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   /**
    * Simple parser for **bold** text and lists.
@@ -52,6 +59,17 @@ function MessageBubble({ msg }) {
         className={`message-bubble ${isUser ? 'bubble-user' : 'bubble-bot'} 
           ${isRefusal ? 'bubble-refusal' : ''} ${msg.isError ? 'bubble-error' : ''}`}
       >
+        {/* Copy Button for Bot Messages */}
+        {!isUser && !msg.isError && (
+          <button 
+            className="copy-bubble-btn" 
+            onClick={handleCopy} 
+            title="Copy answer to clipboard"
+          >
+            {copied ? <Check size={12} className="copied-icon" /> : <Copy size={12} />}
+          </button>
+        )}
+
         {/* Warning Icon for Refusals */}
         {isRefusal && (
           <div className="refusal-warning-header">
