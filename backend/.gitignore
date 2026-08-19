@@ -1,0 +1,14 @@
+# Python files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+venv/
+
+# Environment variables
+# .env
+
+# ChromaDB persistence directory
+chroma_db/
