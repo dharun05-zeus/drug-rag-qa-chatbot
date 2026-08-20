@@ -6,3 +6,6 @@ chromadb
 groq
 python-multipart
 python-dotenv
+easyocr
+pillow
+numpy

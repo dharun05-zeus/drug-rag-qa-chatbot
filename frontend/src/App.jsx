@@ -188,6 +188,60 @@ function App() {
     }
   };
 
+  const handleUploadFile = async (file) => {
+    setIsLoading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('session_id', sessionId);
+    
+    try {
+      const response = await fetch(`${BACKEND_URL}/upload`, {
+        method: 'POST',
+        body: formData
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || 'Upload failed');
+      }
+      
+      const sysMsg = {
+        sender: 'bot',
+        text: `📎 Attachment processed successfully: **${data.filename}** (${data.chunks} chunks extracted). You can now ask questions about this document.`,
+        citations: []
+      };
+      
+      setChats(prevChats => prevChats.map(c => {
+        if (c.id === selectedChatId) {
+          return {
+            ...c,
+            messages: [...c.messages, sysMsg]
+          };
+        }
+        return c;
+      }));
+    } catch (err) {
+      console.error(err);
+      const errMsg = {
+        sender: 'bot',
+        text: `❌ Failed to process attachment: ${err.message}`,
+        citations: [],
+        isError: true
+      };
+      setChats(prevChats => prevChats.map(c => {
+        if (c.id === selectedChatId) {
+          return {
+            ...c,
+            messages: [...c.messages, errMsg]
+          };
+        }
+        return c;
+      }));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleClearChat = () => {
     setChats(prevChats => prevChats.map(c => {
       if (c.id === selectedChatId) {
@@ -288,7 +342,9 @@ function App() {
           isLoading={isLoading}
           isConnected={backendStatus === "connected"}
           onClear={handleClearChat}
+          onUploadFile={handleUploadFile}
         />
+
       </div>
 
       {/* Right Sidebar for Chat logs */}

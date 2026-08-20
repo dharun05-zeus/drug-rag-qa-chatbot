@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional
@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 # Load RAG module
 from rag import query_rag, chroma_client
+from attachment_processor import process_attachment
 
 # Load environment variables
 load_dotenv()
@@ -56,8 +57,14 @@ class DocumentSource(BaseModel):
     name: str = Field(..., description="Name of the source PDF file")
     pages: int = Field(..., description="Number of unique pages indexed")
 
+class UploadResponse(BaseModel):
+    status: str = Field(..., description="Status of the upload: 'success' or 'error'")
+    filename: str = Field(..., description="Name of the uploaded file")
+    chunks: int = Field(..., description="Number of extracted text chunks")
+
 # In-memory store resets on server restart. For production, replace with Redis or a lightweight persistent store.
 session_histories = {}
+session_attachments = {}
 
 # --- API Endpoints ---
 
@@ -100,6 +107,47 @@ def health_endpoint():
         "model": os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
     }
 
+@app.post("/upload", response_model=UploadResponse)
+async def upload_endpoint(
+    session_id: str = Form(..., description="Unique session ID to associate the attachment with"),
+    file: UploadFile = File(..., description="The file attachment to process")
+):
+    """
+    Upload Attachment Endpoint:
+    1. Extracts text from PDF, DOCX, Images (OCR), or Text.
+    2. Chunk and embed using SentenceTransformer.
+    3. Cache the chunks inside session_attachments[session_id].
+    """
+    if not session_id.strip():
+        raise HTTPException(status_code=400, detail="session_id cannot be empty.")
+        
+    file_bytes = await file.read()
+    try:
+        chunks = process_attachment(file_bytes, file.filename)
+        
+        if session_id not in session_attachments:
+            session_attachments[session_id] = []
+            
+        # Add chunks to session cache
+        session_attachments[session_id].extend(chunks)
+        
+        return UploadResponse(
+            status="success",
+            filename=file.filename,
+            chunks=len(chunks)
+        )
+    except ValueError as ve:
+        import traceback
+        print(f"\n[ERROR] ValueError during upload of file '{file.filename}': {ve}")
+        traceback.print_exc()
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        import traceback
+        print(f"\n[ERROR] Unexpected error during upload of file '{file.filename}': {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Internal processing error: {str(e)}")
+
+
 @app.post("/chat", response_model=ChatResponse)
 def chat_endpoint(request: ChatRequest):
     """
@@ -124,8 +172,10 @@ def chat_endpoint(request: ChatRequest):
     history_dicts = [{"role": msg.role, "content": msg.content} for msg in history]
         
     try:
+        # Retrieve attachments for this session
+        attachments = session_attachments.get(request.session_id, [])
         # Run the query through RAG pipeline
-        result = query_rag(request.question, role=request.role, history=history_dicts)
+        result = query_rag(request.question, role=request.role, history=history_dicts, attachments=attachments)
         
         # Build updated conversation history in session store
         user_message = ChatMessage(role="user", content=request.question)
