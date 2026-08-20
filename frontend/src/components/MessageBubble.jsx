@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
-import { FileText, AlertTriangle, ChevronDown, ChevronUp, BarChart2, Copy, Check } from 'lucide-react';
+import { 
+  FileText, 
+  AlertTriangle, 
+  ChevronDown, 
+  ChevronUp, 
+  BarChart2, 
+  Copy, 
+  RotateCw, 
+  ThumbsUp, 
+  ThumbsDown 
+} from 'lucide-react';
 
 /**
  * MessageBubble Component
@@ -7,7 +17,7 @@ import { FileText, AlertTriangle, ChevronDown, ChevronUp, BarChart2, Copy, Check
  * Implements markdown rendering, warning bubbles for refusals,
  * interactive citation badges, and a hidden RAG debug scores panel.
  */
-function MessageBubble({ msg }) {
+function MessageBubble({ msg, activeModel }) {
   const isUser = msg.sender === 'user';
   const isRefusal = msg.text && msg.text.startsWith("I don't have this information in the provided documents.");
   
@@ -15,8 +25,8 @@ function MessageBubble({ msg }) {
   const [showDebug, setShowDebug] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(msg.text);
+  const handleCopyText = (text) => {
+    navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -59,15 +69,24 @@ function MessageBubble({ msg }) {
         className={`message-bubble ${isUser ? 'bubble-user' : 'bubble-bot'} 
           ${isRefusal ? 'bubble-refusal' : ''} ${msg.isError ? 'bubble-error' : ''}`}
       >
-        {/* Copy Button for Bot Messages */}
-        {!isUser && !msg.isError && (
-          <button 
-            className="copy-bubble-btn" 
-            onClick={handleCopy} 
-            title="Copy answer to clipboard"
-          >
-            {copied ? <Check size={12} className="copied-icon" /> : <Copy size={12} />}
-          </button>
+        {/* Badges and copy button row at top for Bot */}
+        {!isUser && (
+          <div className="bot-message-header">
+            <div className="bot-badges">
+              <span className="badge-pill rag-pill">RAG</span>
+              <span className="badge-pill model-pill">{activeModel || 'gpt-oss-20b'}</span>
+              {msg.citations && msg.citations.length > 0 && (
+                <span className="badge-pill cited-pill">Cited</span>
+              )}
+            </div>
+            <button 
+              className="copy-btn-top" 
+              onClick={() => handleCopyText(msg.text)}
+              title={copied ? "Copied!" : "Copy answer"}
+            >
+              <Copy size={13} />
+            </button>
+          </div>
         )}
 
         {/* Warning Icon for Refusals */}
@@ -80,6 +99,26 @@ function MessageBubble({ msg }) {
 
         {/* Message Prose */}
         <div className="bubble-text">{renderMessageContent(msg.text)}</div>
+
+        {/* Bottom feedback row for Bot */}
+        {!isUser && (
+          <div className="bot-message-footer">
+            <div className="footer-actions">
+              <button className="footer-action-btn" title="Regenerate">
+                <RotateCw size={13} />
+              </button>
+              <button className="footer-action-btn" title="Good response">
+                <ThumbsUp size={13} />
+              </button>
+              <button className="footer-action-btn" title="Bad response">
+                <ThumbsDown size={13} />
+              </button>
+              <button className="footer-action-btn" onClick={() => handleCopyText(msg.text)} title="Copy message">
+                <Copy size={13} />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Citations Panel */}
         {!isUser && msg.citations && msg.citations.length > 0 && (

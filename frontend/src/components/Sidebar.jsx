@@ -1,91 +1,93 @@
 import React from 'react';
-import { Database, ShieldAlert, FileText, X, Check, Upload } from 'lucide-react';
+import { 
+  ShieldAlert, 
+  MessageSquare, 
+  LayoutGrid, 
+  FileText, 
+  BarChart2, 
+  Settings, 
+  Info, 
+  LogOut, 
+  Sidebar as SidebarIcon,
+  Shield
+} from 'lucide-react';
 
 /**
  * Sidebar Component
- * Left panel showing project info, guardrails, and loaded documents.
- * Can be collapsed or closed via standard state callbacks.
+ * Left panel showing the medai. logo, main menu with Pro badges,
+ * Clinical Guardrails card, and Logout action.
  */
-function Sidebar({ isOpen, onClose, documents = [] }) {
+function Sidebar({ isOpen, onClose, documents = [], activeModel, onNewChat }) {
   return (
-    <aside className={`chat-sidebar ${isOpen ? 'sidebar-open' : ''}`}>
+    <aside className={`chat-sidebar ${isOpen ? 'sidebar-open' : 'sidebar-collapsed'}`}>
       <div className="sidebar-header-area">
         <div className="sidebar-logo">
-          <Database className="logo-icon" size={20} />
-          <h2>RAG Knowledge</h2>
+          <Shield className="logo-icon-shield" size={22} fill="#f2be18" stroke="#f2be18" />
+          <span className="logo-text">medai.</span>
         </div>
-        <button className="sidebar-close-btn" onClick={onClose} title="Close Sidebar">
-          <X size={18} />
+        <button className="sidebar-toggle-btn" onClick={onClose} title="Collapse Sidebar">
+          <SidebarIcon size={18} />
         </button>
       </div>
 
-      <div className="sidebar-scrollable">
-        {/* System Summary */}
-        <section className="sidebar-card">
-          <h3>System Architecture</h3>
-          <p>
-            This prototype leverages a zero-hallucination RAG (Retrieval-Augmented Generation) pipeline. Questions are answered strictly using retrieved text segments.
-          </p>
-        </section>
+      <div className="sidebar-menu-list">
+        {/* Menu Items */}
+        <button className="menu-item active" onClick={onNewChat}>
+          <MessageSquare size={18} className="menu-icon" />
+          <span>AI Chat Assistant</span>
+        </button>
 
-        {/* Knowledge Base Files */}
-        <section className="sidebar-card">
-          <h3>Active Knowledge Base</h3>
-          <div className="doc-list">
-            {documents.length === 0 ? (
-              <div className="no-docs-message">
-                No active documents found. Place PDFs in backend/data/ and run ingest.py
-              </div>
-            ) : (
-              <>
-                {documents.map((doc, idx) => (
-                  <div key={idx} className="doc-item">
-                    <FileText size={14} className="doc-icon" />
-                    <div className="doc-info">
-                      <span className="doc-name">{doc.name}</span>
-                      <span className="doc-meta">{doc.pages} pages indexed</span>
-                    </div>
-                    <span className="doc-status-badge" title="Active and loaded in memory">
-                      <Check size={9} /> active
-                    </span>
-                  </div>
-                ))}
-                {/* Interactive mock upload area */}
-                <div className="doc-item doc-item-upload" title="Simulated File Uploader">
-                  <Upload size={13} className="upload-icon" />
-                  <div className="doc-info">
-                    <span className="doc-name upload-text">Upload drug insert...</span>
-                    <span className="doc-meta">PDF size up to 50MB</span>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </section>
+        <button className="menu-item">
+          <LayoutGrid size={18} className="menu-icon" />
+          <span>My Workspaces</span>
+        </button>
 
-        {/* Safety Guardrails */}
-        <section className="sidebar-card">
-          <h3>Guardrails Enabled</h3>
-          <ul className="guardrails-list">
-            <li>
-              <ShieldAlert size={14} className="g-icon" />
-              <span><strong>Page-Level Citations:</strong> Only exact pages parsed from context are cited.</span>
-            </li>
-            <li>
-              <ShieldAlert size={14} className="g-icon" />
-              <span><strong>Distance Threshold:</strong> Non-relevant questions (L2 &gt; 1.25) are blocked before invoking LLMs.</span>
-            </li>
-            <li>
-              <ShieldAlert size={14} className="g-icon" />
-              <span><strong>Medical Refusal:</strong> Clinically unsupported advice triggers fallback warnings.</span>
-            </li>
-          </ul>
-        </section>
+        <button className="menu-item">
+          <FileText size={18} className="menu-icon" />
+          <span>Templates</span>
+          <span className="pro-badge">Pro</span>
+        </button>
+
+        <button className="menu-item">
+          <BarChart2 size={18} className="menu-icon" />
+          <span>Statistics</span>
+          <span className="pro-badge">Pro</span>
+        </button>
+
+        <button className="menu-item">
+          <Settings size={18} className="menu-icon" />
+          <span>Preferences</span>
+        </button>
+
+        <button className="menu-item">
+          <Info size={18} className="menu-icon" />
+          <span>What's New & Help</span>
+        </button>
       </div>
 
-      <div className="sidebar-footer">
-        <p>Cognizant Hackathon Prototype</p>
-        <span className="version">v1.1.0 (Qwen-27B)</span>
+      {/* Clinical Guardrails card */}
+      <div className="clinical-guardrails-container">
+        <div className="clinical-guardrails-card">
+          <div className="guardrails-card-header">
+            <ShieldAlert size={20} className="guardrails-shield-icon" />
+            <h4>Clinical Guardrails</h4>
+          </div>
+          <p className="guardrails-card-desc">
+            Answers are retrieved from indexed prescribing documents with page citations.
+          </p>
+          <div className="guardrails-card-footer">
+            <span className="rag-on-text">RAG on</span>
+            <span className="verified-pill">Verified</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Logout option at the very bottom */}
+      <div className="sidebar-footer-logout">
+        <button className="logout-btn">
+          <LogOut size={18} className="logout-icon" />
+          <span>Log out</span>
+        </button>
       </div>
     </aside>
   );

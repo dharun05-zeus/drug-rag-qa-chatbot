@@ -1,13 +1,13 @@
 import React, { useRef, useEffect } from 'react';
 import MessageBubble from './MessageBubble';
-import { HelpCircle, Sparkles } from 'lucide-react';
 
 /**
  * ChatWindow Component
  * Container for the active message list. 
- * Renders empty state instructions and suggested questions.
+ * Renders the welcome message, message bubble stream, 
+ * and shows clickable suggested query cards when the chat is empty/new.
  */
-function ChatWindow({ messages, isLoading, onSelectQuery }) {
+function ChatWindow({ messages, isLoading, onSelectQuery, activeModel }) {
   const messagesEndRef = useRef(null);
 
   const sampleQueries = [
@@ -25,31 +25,24 @@ function ChatWindow({ messages, isLoading, onSelectQuery }) {
     scrollToBottom();
   }, [messages, isLoading]);
 
-  const isEmpty = messages.length <= 1;
+  // If there's only the default bot welcome message, show the suggestion cards right below it
+  const showSuggestions = messages.length === 1 && messages[0].sender === 'bot' && !isLoading;
 
   return (
     <div className="chat-window">
-      {isEmpty ? (
-        <div className="welcome-container">
-          <div className="welcome-logo">
-            <Sparkles size={40} className="sparkle-icon" />
-          </div>
-          <h2>Clinical Q&A RAG Chatbot</h2>
-          <p className="welcome-sub">
-            Ask precise questions about the uploaded drug prescribing documents. 
-            All answers are strictly verified against indexed documents.
-          </p>
+      <div className="messages-scroll-area">
+        {messages.map((msg, index) => (
+          <MessageBubble key={index} msg={msg} activeModel={activeModel} />
+        ))}
 
-          <div className="suggestions-area">
-            <h3>
-              <HelpCircle size={16} />
-              Suggested Queries to Test Ingestion & Guardrails:
-            </h3>
-            <div className="suggestions-grid">
+        {showSuggestions && (
+          <div className="suggestions-in-chat">
+            <h4 className="suggestions-title-chat">Suggested Queries:</h4>
+            <div className="suggestions-grid-chat">
               {sampleQueries.map((query, idx) => (
                 <button 
                   key={idx} 
-                  className="suggestion-chip"
+                  className="suggestion-chip-chat"
                   onClick={() => onSelectQuery(query)}
                 >
                   {query}
@@ -57,29 +50,23 @@ function ChatWindow({ messages, isLoading, onSelectQuery }) {
               ))}
             </div>
           </div>
-        </div>
-      ) : (
-        <div className="messages-scroll-area">
-          {messages.map((msg, index) => (
-            <MessageBubble key={index} msg={msg} />
-          ))}
+        )}
 
-          {/* Typing/Loader Segment */}
-          {isLoading && (
-            <div className="message-row row-bot">
-              <div className="message-bubble bubble-bot loader-bubble">
-                <div className="typing-dots">
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                </div>
-                <div className="loader-label">Retrieving context & calling Groq API...</div>
+        {/* Typing/Loader Segment */}
+        {isLoading && (
+          <div className="message-row row-bot">
+            <div className="message-bubble bubble-bot loader-bubble">
+              <div className="typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
               </div>
+              <div className="loader-label">Retrieving context & calling Groq API...</div>
             </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-      )}
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
     </div>
   );
 }

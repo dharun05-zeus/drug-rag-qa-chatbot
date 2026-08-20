@@ -3,24 +3,38 @@ import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import ChatWindow from './components/ChatWindow';
 import InputBar from './components/InputBar';
+import RightSidebar from './components/RightSidebar';
 import './App.css';
 
 const BACKEND_URL = "http://localhost:8000";
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [messages, setMessages] = useState([
+  const [activeModel, setActiveModel] = useState("gpt-oss-20b");
+  const [chats, setChats] = useState([
     {
-      sender: 'bot',
-      text: "Hello! I am your clinical prescribing information assistant. Ask me questions about indexed drugs, and I will search the documents and reply with page-level citations.",
-      citations: []
+      id: 'chat-1',
+      title: 'New Chat...',
+      messages: [
+        {
+          sender: 'bot',
+          text: "Hello! I am medai, your clinical prescribing assistant. Ask about indexed drugs and I will reply with page-level citations.",
+          citations: []
+        }
+      ],
+      conversationHistory: []
     }
   ]);
+  const [selectedChatId, setSelectedChatId] = useState('chat-1');
   const [input, setInput] = useState("");
-  const [conversationHistory, setConversationHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [backendStatus, setBackendStatus] = useState("checking");
   const [documents, setDocuments] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Get current chat messages & history
+  const activeChat = chats.find(c => c.id === selectedChatId) || chats[0];
+  const messages = activeChat ? activeChat.messages : [];
 
   // Ping backend to check health status
   const checkBackendHealth = () => {
@@ -33,6 +47,11 @@ function App() {
       .then(data => {
         if (data.status === "healthy") {
           setBackendStatus("connected");
+          if (data.model) {
+            // e.g. openai/gpt-oss-20b -> gpt-oss-20b
+            const modelName = data.model.includes('/') ? data.model.split('/')[1] : data.model;
+            setActiveModel(modelName);
+          }
           // Fetch dynamic list of indexed files
           fetch(`${BACKEND_URL}/documents`)
             .then(res => res.ok ? res.json() : [])
@@ -58,8 +77,35 @@ function App() {
     const userQuery = input.trim();
     setInput("");
 
-    // Add user message to state
-    setMessages(prev => [...prev, { sender: 'user', text: userQuery }]);
+    // Create new chat log if none exist
+    let currentChatId = selectedChatId;
+    let updatedChats = [...chats];
+    let chatToUpdate = updatedChats.find(c => c.id === currentChatId);
+
+    if (!chatToUpdate) {
+      currentChatId = 'chat-' + Date.now();
+      chatToUpdate = {
+        id: currentChatId,
+        title: userQuery.substring(0, 30) + (userQuery.length > 30 ? '...' : ''),
+        messages: [
+          {
+            sender: 'bot',
+            text: "Hello! I am medai, your clinical prescribing assistant. Ask about indexed drugs and I will reply with page-level citations.",
+            citations: []
+          }
+        ],
+        conversationHistory: []
+      };
+      updatedChats.push(chatToUpdate);
+      setSelectedChatId(currentChatId);
+    } else if (chatToUpdate.title === "New Chat..." || (chatToUpdate.messages.length === 1 && chatToUpdate.messages[0].sender === 'bot')) {
+      // Update title if it's the first real question in a new chat
+      chatToUpdate.title = userQuery.substring(0, 30) + (userQuery.length > 30 ? '...' : '');
+    }
+
+    // Add user message
+    chatToUpdate.messages = [...chatToUpdate.messages, { sender: 'user', text: userQuery }];
+    setChats(updatedChats);
     setIsLoading(true);
 
     try {
@@ -70,7 +116,10 @@ function App() {
         },
         body: JSON.stringify({
           message: userQuery,
-          conversation_history: conversationHistory
+          conversation_history: chatToUpdate.conversationHistory.map(h => ({
+            role: h.role,
+            content: h.content
+          }))
         })
       });
 
@@ -80,41 +129,106 @@ function App() {
 
       const data = await response.json();
 
-      // Add bot response to state
-      setMessages(prev => [...prev, {
+      // Update chat with bot response
+      const botMsg = {
         sender: 'bot',
         text: data.answer,
         citations: data.citations,
         debug_scores: data.debug_scores
-      }]);
+      };
 
-      // Sync conversation history from backend
-      setConversationHistory(data.conversation_history);
+      setChats(prevChats => prevChats.map(c => {
+        if (c.id === currentChatId) {
+          return {
+            ...c,
+            messages: [...c.messages, botMsg],
+            conversationHistory: data.conversation_history
+          };
+        }
+        return c;
+      }));
     } catch (error) {
       console.error("Chat connection error:", error);
-      setMessages(prev => [...prev, {
+      const errorMsg = {
         sender: 'bot',
-        text: "Error: Could not connect to the backend server. Verify that FastAPI is running on port 8000 and your Groq API key is correctly configured.",
+        text: "Error: Could not connect to the backend server. Verify that FastAPI is running on port 8000 and your API key is correctly configured.",
         citations: [],
         isError: true
-      }]);
+      };
+
+      setChats(prevChats => prevChats.map(c => {
+        if (c.id === currentChatId) {
+          return {
+            ...c,
+            messages: [...c.messages, errorMsg]
+          };
+        }
+        return c;
+      }));
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleClearChat = () => {
-    setMessages([
-      {
-        sender: 'bot',
-        text: "Conversation cleared. Ask me a new question!",
-        citations: []
+    setChats(prevChats => prevChats.map(c => {
+      if (c.id === selectedChatId) {
+        return {
+          ...c,
+          title: "New Chat...",
+          messages: [
+            {
+              sender: 'bot',
+              text: "Conversation cleared. Ask me a new question!",
+              citations: []
+            }
+          ],
+          conversationHistory: []
+        };
       }
-    ]);
-    setConversationHistory([]);
+      return c;
+    }));
   };
 
-  // Helper when clicking suggestions
+  const handleClearAllHistory = () => {
+    const newChatId = 'chat-' + Date.now();
+    setChats([
+      {
+        id: newChatId,
+        title: "New Chat...",
+        messages: [
+          {
+            sender: 'bot',
+            text: "Hello! I am medai, your clinical prescribing assistant. Ask about indexed drugs and I will reply with page-level citations.",
+            citations: []
+          }
+        ],
+        conversationHistory: []
+      }
+    ]);
+    setSelectedChatId(newChatId);
+  };
+
+  const handleNewChat = () => {
+    const newChatId = 'chat-' + Date.now();
+    setChats(prev => [
+      ...prev,
+      {
+        id: newChatId,
+        title: "New Chat...",
+        messages: [
+          {
+            sender: 'bot',
+            text: "Hello! I am medai, your clinical prescribing assistant. Ask about indexed drugs and I will reply with page-level citations.",
+            citations: []
+          }
+        ],
+        conversationHistory: []
+      }
+    ]);
+    setSelectedChatId(newChatId);
+  };
+
   const handleSuggestionSelect = (query) => {
     setInput(query);
   };
@@ -126,6 +240,8 @@ function App() {
         isOpen={sidebarOpen} 
         onClose={() => setSidebarOpen(false)} 
         documents={documents}
+        activeModel={activeModel}
+        onNewChat={handleNewChat}
       />
       
       {/* Main Chat Workspace */}
@@ -134,12 +250,15 @@ function App() {
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} 
           backendStatus={backendStatus}
           onRetryConnection={checkBackendHealth}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
         />
         
         <ChatWindow 
           messages={messages} 
           isLoading={isLoading} 
           onSelectQuery={handleSuggestionSelect}
+          activeModel={activeModel}
         />
         
         <InputBar 
@@ -151,6 +270,14 @@ function App() {
           onClear={handleClearChat}
         />
       </div>
+
+      {/* Right Sidebar for Chat logs */}
+      <RightSidebar 
+        chats={chats}
+        selectedChatId={selectedChatId}
+        onSelectChat={setSelectedChatId}
+        onClearHistory={handleClearAllHistory}
+      />
     </div>
   );
 }
