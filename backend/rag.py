@@ -1,9 +1,35 @@
 import os
+import ssl
+# Bypass SSL verification to avoid CERTIFICATE_VERIFY_FAILED error when downloading HuggingFace models
+ssl._create_default_https_context = ssl._create_unverified_context
+os.environ["CURL_CA_BUNDLE"] = ""
+os.environ["REQUESTS_CA_BUNDLE"] = ""
+os.environ["HF_HUB_DISABLE_SSL_VERIFICATION"] = "1"
+
+import httpx
+import urllib3
+from huggingface_hub.utils._http import set_client_factory
+import huggingface_hub.constants as constants
+
+def custom_client_factory() -> httpx.Client:
+    from huggingface_hub.utils._http import hf_request_event_hook
+    return httpx.Client(
+        verify=False,  # Bypass SSL verification
+        event_hooks={"request": [hf_request_event_hook]},
+        follow_redirects=True,
+        timeout=httpx.Timeout(constants.HF_HUB_DOWNLOAD_TIMEOUT, write=60.0),
+    )
+
+set_client_factory(custom_client_factory)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+
 import re
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 import chromadb
 from groq import Groq
+
 
 # Load environment variables (from .env file)
 load_dotenv()
@@ -208,7 +234,9 @@ def query_rag(query_text: str, role: str = "doctor", history: list = None) -> di
     groq_model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
     
     try:
-        client = Groq(api_key=groq_api_key)
+        # Create a custom HTTP client with SSL verification bypassed to avoid local SSL proxy issues
+        http_client = httpx.Client(verify=False)
+        client = Groq(api_key=groq_api_key, http_client=http_client)
         response = client.chat.completions.create(
             model=groq_model,
             messages=messages,
