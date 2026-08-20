@@ -17,7 +17,7 @@ import {
  * Left panel showing the medai. logo, main menu with Pro badges,
  * Clinical Guardrails card, and Logout action.
  */
-function Sidebar({ isOpen, onClose, documents = [], activeModel, onNewChat }) {
+function Sidebar({ isOpen, onClose, documents = [], activeModel, onNewChat, audienceMode, onAudienceModeChange }) {
   return (
     <aside className={`chat-sidebar ${isOpen ? 'sidebar-open' : 'sidebar-collapsed'}`}>
       <div className="sidebar-header-area">
@@ -63,6 +63,25 @@ function Sidebar({ isOpen, onClose, documents = [], activeModel, onNewChat }) {
           <Info size={18} className="menu-icon" />
           <span>What's New & Help</span>
         </button>
+      </div>
+
+      {/* Target Audience Selector */}
+      <div className="audience-selector-container">
+        <h4 className="audience-selector-title">Target Audience</h4>
+        <div className="audience-toggle-buttons">
+          <button 
+            className={`audience-btn ${audienceMode === 'doctor' ? 'active' : ''}`}
+            onClick={() => onAudienceModeChange('doctor')}
+          >
+            Doctor
+          </button>
+          <button 
+            className={`audience-btn ${audienceMode === 'patient' ? 'active' : ''}`}
+            onClick={() => onAudienceModeChange('patient')}
+          >
+            Patient / Caretaker
+          </button>
+        </div>
       </div>
 
       {/* Clinical Guardrails card */}

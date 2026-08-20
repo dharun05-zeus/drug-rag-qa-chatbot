@@ -11,6 +11,7 @@ const BACKEND_URL = "http://localhost:8000";
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeModel, setActiveModel] = useState("gpt-oss-20b");
+  const [audienceMode, setAudienceMode] = useState("doctor");
   const [chats, setChats] = useState([
     {
       id: 'chat-1',
@@ -109,13 +110,18 @@ function App() {
     setIsLoading(true);
 
     try {
+      let queryToSend = userQuery;
+      if (audienceMode === 'patient') {
+        queryToSend = userQuery + "\n\n(IMPORTANT: Please answer in simple, layman terms suitable for a patient or caretaker. Avoid complex pharmacological jargon, use accessible vocabulary, explain dosage or precautions in everyday terms, but strictly maintain facts and citations from the context.)";
+      }
+
       const response = await fetch(`${BACKEND_URL}/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          message: userQuery,
+          message: queryToSend,
           conversation_history: chatToUpdate.conversationHistory.map(h => ({
             role: h.role,
             content: h.content
@@ -242,6 +248,8 @@ function App() {
         documents={documents}
         activeModel={activeModel}
         onNewChat={handleNewChat}
+        audienceMode={audienceMode}
+        onAudienceModeChange={setAudienceMode}
       />
       
       {/* Main Chat Workspace */}
