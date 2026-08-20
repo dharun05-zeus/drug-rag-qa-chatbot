@@ -6,21 +6,16 @@ os.environ["CURL_CA_BUNDLE"] = ""
 os.environ["REQUESTS_CA_BUNDLE"] = ""
 os.environ["HF_HUB_DISABLE_SSL_VERIFICATION"] = "1"
 
-import httpx
+import requests
 import urllib3
-from huggingface_hub.utils._http import set_client_factory
-import huggingface_hub.constants as constants
+from huggingface_hub import configure_http_backend
 
-def custom_client_factory() -> httpx.Client:
-    from huggingface_hub.utils._http import hf_request_event_hook
-    return httpx.Client(
-        verify=False,  # Bypass SSL verification
-        event_hooks={"request": [hf_request_event_hook]},
-        follow_redirects=True,
-        timeout=httpx.Timeout(constants.HF_HUB_DOWNLOAD_TIMEOUT, write=60.0),
-    )
+def custom_session_factory() -> requests.Session:
+    session = requests.Session()
+    session.verify = False  # Bypass SSL verification
+    return session
 
-set_client_factory(custom_client_factory)
+configure_http_backend(backend_factory=custom_session_factory)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 import glob

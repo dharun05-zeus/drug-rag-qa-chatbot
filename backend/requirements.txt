@@ -9,3 +9,4 @@ python-dotenv
 easyocr
 pillow
 numpy
+docx2txt
