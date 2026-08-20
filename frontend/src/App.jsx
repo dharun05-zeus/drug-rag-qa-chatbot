@@ -248,8 +248,6 @@ function App() {
         documents={documents}
         activeModel={activeModel}
         onNewChat={handleNewChat}
-        audienceMode={audienceMode}
-        onAudienceModeChange={setAudienceMode}
       />
       
       {/* Main Chat Workspace */}
@@ -260,6 +258,8 @@ function App() {
           onRetryConnection={checkBackendHealth}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          audienceMode={audienceMode}
+          onAudienceModeChange={setAudienceMode}
         />
         
         <ChatWindow 

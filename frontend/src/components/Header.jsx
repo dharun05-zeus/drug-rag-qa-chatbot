@@ -7,7 +7,7 @@ import StatusIndicator from './StatusIndicator';
  * Renders the top navbar of the chat workspace.
  * Includes AI Chat Helper title, search pill, info icon, and Server Online status badge.
  */
-function Header({ onToggleSidebar, backendStatus, onRetryConnection, searchQuery, onSearchChange }) {
+function Header({ onToggleSidebar, backendStatus, onRetryConnection, searchQuery, onSearchChange, audienceMode, onAudienceModeChange }) {
   return (
     <header className="chat-header">
       <div className="header-left">
@@ -31,6 +31,24 @@ function Header({ onToggleSidebar, backendStatus, onRetryConnection, searchQuery
         <button className="info-icon-btn" title="Information">
           <Info size={18} />
         </button>
+
+        {/* Target Audience Toggle */}
+        <div className="header-audience-toggle">
+          <button 
+            className={`header-audience-btn ${audienceMode === 'doctor' ? 'active' : ''}`}
+            onClick={() => onAudienceModeChange('doctor')}
+            title="Clinician/Doctor technical mode"
+          >
+            Doctor
+          </button>
+          <button 
+            className={`header-audience-btn ${audienceMode === 'patient' ? 'active' : ''}`}
+            onClick={() => onAudienceModeChange('patient')}
+            title="Patient/Caretaker simplified mode"
+          >
+            Patient
+          </button>
+        </div>
       </div>
 
       <div className="header-right">
