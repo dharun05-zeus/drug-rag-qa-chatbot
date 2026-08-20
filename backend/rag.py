@@ -43,19 +43,47 @@ def extract_final_answer(raw_text: str) -> str:
     clean_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL)
     return clean_text.strip()
 
-# System instructions for the LLM
-SYSTEM_PROMPT = """You are a highly precise Drug Information Q&A Assistant.
+
+def build_prompt(role: str, question: str, retrieved_chunks: str, chat_history: str) -> str:
+    """
+    Constructs a role-specific system prompt based on user audience role ("doctor" or "patient").
+    """
+    if role == "doctor":
+        persona = """You are a highly precise Drug Information Q&A Assistant.
 Your primary role is to answer questions using ONLY the provided drug reference document chunks.
+AUDIENCE: CLINICIANS & DOCTORS.
+- Use clinical terminology (mechanism of action, contraindications, pharmacokinetics).
+- Include full dosage details, drug-drug interactions, and precautions/cautions exactly as stated in the source context.
+- Be concise, professional, and direct. Do not simplify, soften, or extrapolate the language.
+- State clinical warnings directly and factually.
+- Do NOT use outside knowledge. Answer ONLY using the provided Context."""
+    else:
+        persona = """You are a highly precise Drug Information Q&A Assistant.
+Your primary role is to answer questions using ONLY the provided drug reference document chunks.
+AUDIENCE: PATIENTS & CARETAKERS.
+- Use plain, simple, everyday language. Explain any unavoidable medical terms in parenthetical layman explanations.
+- Dosage information is allowed, but must be framed safely:
+  - State the standard/typical dosage as written in the document context.
+  - Always add this exact caveat: "This is the standard dosage from the label — your doctor may prescribe differently based on your condition. Do not change your dose without consulting them."
+  - Never tell the patient to start, stop, increase, or decrease their own current medication based on the chatbot's answer.
+  - Focus on general understanding: what the drug is for, how it is typically taken, common side effects, and when to seek medical help.
+- Do NOT use outside knowledge. Answer ONLY using the provided Context."""
 
-CRITICAL INSTRUCTIONS:
-1. Answer the question using ONLY the provided Context. Do NOT make up information or use external knowledge.
-2. For EVERY claim or fact you mention, you MUST cite the source document name and page number from the context (e.g., "Source: filename.pdf, Page X").
-3. If the context does not contain the answer to the question, or if the context is empty/irrelevant, you MUST state exactly: "I don't have this information in the provided documents." Do NOT attempt to answer, speculate, or extrapolate.
-4. Medical Dosing & Advice Guardrail: You are strictly forbidden from providing medical dosing, treatment guidelines, or clinical recommendations unless they are explicitly and word-for-word written in the provided context. If the user asks for advice or dosing not found in the context, refuse to answer and instruct them to consult a healthcare professional.
-5. ALWAYS append this disclaimer on a new line at the very end of your response: "Disclaimer: This information is derived from official drug documents and is for educational purposes only. Please consult a healthcare professional for clinical advice or treatment decisions."
-"""
+    return f"""{persona}
 
-def query_rag(query_text: str, history: list = None) -> dict:
+Context from drug documents:
+{retrieved_chunks}
+
+Conversation history:
+{chat_history}
+
+Question: {question}
+
+Answer ONLY using the context above. If the answer isn't in the context, say so clearly.
+Cite the source page number(s) for every claim."""
+
+
+def query_rag(query_text: str, role: str = "doctor", history: list = None) -> dict:
     """
     RAG pipeline:
     1. Embed query
@@ -65,6 +93,7 @@ def query_rag(query_text: str, history: list = None) -> dict:
     5. Query Groq API
     6. Return answer, citations & debug scores
     """
+    # Note: Mid-conversation role switches carry prior chat history over as-is; only the persona for the NEXT answer changes.
     if history is None:
         history = []
         
@@ -149,28 +178,23 @@ def query_rag(query_text: str, history: list = None) -> dict:
                 
     # 4. Construct Prompt
     context_str = "\n\n".join(context_chunks)
-    messages = []
     
-    # Append System Instructions
-    messages.append({
-        "role": "system",
-        "content": SYSTEM_PROMPT
-    })
+    # Format chat history as a string
+    history_str = ""
+    if history:
+        for msg in history[-6:]:  # Limit to last 3 turns (6 messages)
+            role_label = "User" if msg["role"] == "user" else "Assistant"
+            history_str += f"{role_label}: {msg['content']}\n"
+            
+    # Assemble the final single prompt string
+    prompt_str = build_prompt(role, query_text, context_str, history_str)
     
-    # Append Conversation History (limit to last 3 turns = 6 messages)
-    recent_history = history[-6:]
-    for msg in recent_history:
-        messages.append({
-            "role": msg["role"],
-            "content": msg["content"]
-        })
-        
-    # Append the current User query and context
-    user_content = f"Context:\n{context_str}\n\nQuestion: {query_text}"
-    messages.append({
-        "role": "user",
-        "content": user_content
-    })
+    messages = [
+        {
+            "role": "user",
+            "content": prompt_str
+        }
+    ]
     
     # 5. Call Groq LLM API
     groq_api_key = os.environ.get("GROQ_API_KEY")
@@ -225,3 +249,24 @@ def query_rag(query_text: str, history: list = None) -> dict:
             "citations": [],
             "debug_scores": debug_scores
         }
+
+
+if __name__ == "__main__":
+    sample_chunks = (
+        "--- START CHUNK (Source: rinvoq_pi.pdf, Page 8) ---\n"
+        "The recommended dosage of RINVOQ for rheumatoid arthritis is 15 mg once daily. "
+        "RINVOQ may be used as monotherapy or in combination with methotrexate or other nonbiologic DMARDs.\n"
+        "--- END CHUNK ---"
+    )
+    sample_history = "User: What is RINVOQ for?\nAssistant: RINVOQ is for rheumatoid arthritis."
+    sample_question = "What is the recommended dosage of RINVOQ?"
+    
+    print("=== VISUAL TEST: build_prompt FOR DOCTOR ===")
+    doctor_prompt = build_prompt("doctor", sample_question, sample_chunks, sample_history)
+    print(doctor_prompt)
+    print("\n" + "="*50 + "\n")
+    
+    print("=== VISUAL TEST: build_prompt FOR PATIENT ===")
+    patient_prompt = build_prompt("patient", sample_question, sample_chunks, sample_history)
+    print(patient_prompt)
+    print("\n" + "="*50 + "\n")

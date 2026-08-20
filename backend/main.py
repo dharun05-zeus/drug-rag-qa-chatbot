@@ -18,10 +18,9 @@ app = FastAPI(
 )
 
 # Enable CORS (Cross-Origin Resource Sharing)
-# This allows our React frontend (running on a different port like 5173) to communicate with this API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify the exact domains, e.g. ["http://localhost:5173"]
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -34,11 +33,9 @@ class ChatMessage(BaseModel):
     content: str = Field(..., description="Text content of the message")
 
 class ChatRequest(BaseModel):
-    message: str = Field(..., description="The user's query about a drug")
-    conversation_history: List[ChatMessage] = Field(
-        default=[], 
-        description="List of past messages in the conversation for continuity"
-    )
+    question: str = Field(..., description="The user's query about a drug")
+    role: str = Field(..., description="Target audience: 'doctor' or 'patient'")
+    session_id: str = Field(..., description="Unique session ID for tracking history")
 
 class Citation(BaseModel):
     document: str = Field(..., description="Name of the source PDF file")
@@ -58,6 +55,9 @@ class ChatResponse(BaseModel):
 class DocumentSource(BaseModel):
     name: str = Field(..., description="Name of the source PDF file")
     pages: int = Field(..., description="Number of unique pages indexed")
+
+# In-memory store resets on server restart. For production, replace with Redis or a lightweight persistent store.
+session_histories = {}
 
 # --- API Endpoints ---
 
@@ -104,34 +104,35 @@ def health_endpoint():
 def chat_endpoint(request: ChatRequest):
     """
     Core Chat Endpoint:
-    1. Extracts history as standard list of dictionaries.
-    2. Invokes query_rag to search document embeddings and build completion.
-    3. Appends the new query and generated response to the conversation history.
-    4. Returns response back to the React UI.
+    1. Fetches history for the given session_id from backend memory.
+    2. Runs the query through RAG pipeline using the requested role (doctor/patient).
+    3. Appends the new Q&A turn to the session history cache.
+    4. Returns updated history, citations, and debug scores back to the React UI.
     """
-    if not request.message.strip():
-        raise HTTPException(status_code=400, detail="Message cannot be empty.")
+    if not request.question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+    if request.role not in ["doctor", "patient"]:
+        raise HTTPException(status_code=400, detail="Role must be 'doctor' or 'patient'.")
     
-    # Format request history for rag.py consumption
-    history_dicts = []
-    for msg in request.conversation_history:
-        # Validate roles
-        if msg.role not in ["user", "assistant"]:
-            raise HTTPException(status_code=400, detail="Invalid message role. Must be 'user' or 'assistant'.")
-        history_dicts.append({
-            "role": msg.role,
-            "content": msg.content
-        })
+    # Retrieve or initialize history for this session_id
+    if request.session_id not in session_histories:
+        session_histories[request.session_id] = []
+        
+    history = session_histories[request.session_id]
+    
+    # Format history for rag.py consumption
+    history_dicts = [{"role": msg.role, "content": msg.content} for msg in history]
         
     try:
         # Run the query through RAG pipeline
-        result = query_rag(request.message, history=history_dicts)
+        result = query_rag(request.question, role=request.role, history=history_dicts)
         
-        # Build updated conversation history
-        # We append the user message and the assistant message to the history
-        new_history = list(request.conversation_history)
-        new_history.append(ChatMessage(role="user", content=request.message))
-        new_history.append(ChatMessage(role="assistant", content=result["answer"]))
+        # Build updated conversation history in session store
+        user_message = ChatMessage(role="user", content=request.question)
+        assistant_message = ChatMessage(role="assistant", content=result["answer"])
+        history.append(user_message)
+        history.append(assistant_message)
+        session_histories[request.session_id] = history
         
         # Build response citations
         citations = []
@@ -154,7 +155,7 @@ def chat_endpoint(request: ChatRequest):
         return ChatResponse(
             answer=result["answer"],
             citations=citations,
-            conversation_history=new_history,
+            conversation_history=history,
             debug_scores=debug_scores
         )
         

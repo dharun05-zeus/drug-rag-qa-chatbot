@@ -8,7 +8,26 @@ import './App.css';
 
 const BACKEND_URL = "http://localhost:8000";
 
+function generateUUID() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 function App() {
+  const [sessionId] = useState(() => {
+    let id = sessionStorage.getItem('medai_session_id');
+    if (!id) {
+      id = generateUUID();
+      sessionStorage.setItem('medai_session_id', id);
+    }
+    return id;
+  });
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeModel, setActiveModel] = useState("gpt-oss-20b");
   const [audienceMode, setAudienceMode] = useState("doctor");
@@ -110,22 +129,15 @@ function App() {
     setIsLoading(true);
 
     try {
-      let queryToSend = userQuery;
-      if (audienceMode === 'patient') {
-        queryToSend = userQuery + "\n\n(IMPORTANT: Please answer in simple, layman terms suitable for a patient or caretaker. Avoid complex pharmacological jargon, use accessible vocabulary, explain dosage or precautions in everyday terms, but strictly maintain facts and citations from the context.)";
-      }
-
       const response = await fetch(`${BACKEND_URL}/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          message: queryToSend,
-          conversation_history: chatToUpdate.conversationHistory.map(h => ({
-            role: h.role,
-            content: h.content
-          }))
+          question: userQuery,
+          role: audienceMode,
+          session_id: sessionId
         })
       });
 
