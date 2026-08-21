@@ -25,10 +25,45 @@ def get_ocr_reader():
     return _ocr_reader
 
 
+def is_gibberish(text: str) -> bool:
+    if not text:
+        return True
+    
+    words = text.split()
+    if not words:
+        return True
+        
+    gibberish_count = 0
+    for w in words:
+        w_clean = "".join(c for c in w if c.isalnum())
+        if not w_clean:
+            gibberish_count += 1
+            continue
+            
+        has_alpha = any(c.isalpha() for c in w_clean)
+        has_digit = any(c.isdigit() for c in w_clean)
+        if has_alpha and has_digit:
+            gibberish_count += 1
+            continue
+            
+        symbol_count = sum(1 for c in w if not c.isalnum() and not c.isspace())
+        if symbol_count >= 2:
+            gibberish_count += 1
+            continue
+            
+        vowels = set("aeiouAEIOU")
+        if has_alpha and not any(c in vowels for c in w_clean) and len(w_clean) > 2:
+            gibberish_count += 1
+            continue
+            
+    # If more than 25% of the words are gibberish, it's a corrupted text layer
+    return (gibberish_count / len(words)) > 0.25
+
+
 def process_pdf(file_bytes: bytes, filename: str) -> list[dict]:
     """
     Extracts text page by page from PDF file bytes using PyMuPDF.
-    If a page is scanned (no text layer), renders it and uses EasyOCR.
+    If a page is scanned (no text layer) or has a corrupted text layer, renders it and uses EasyOCR.
     """
     pages_data = []
     try:
@@ -38,7 +73,8 @@ def process_pdf(file_bytes: bytes, filename: str) -> list[dict]:
             text = page.get_text("text")
             clean_text = " ".join(text.split())
             
-            if not clean_text:
+            # Fallback to OCR if the extracted text layer is empty or gibberish
+            if not clean_text or is_gibberish(clean_text):
                 try:
                     logger.info(f"Page {page_num + 1} of PDF '{filename}' has no text layer. Running OCR fallback...")
                     pix = page.get_pixmap(dpi=150)
