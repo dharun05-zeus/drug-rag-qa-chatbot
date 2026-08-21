@@ -93,7 +93,8 @@ def process_image(file_bytes: bytes, filename: str) -> list[dict]:
         # Sort results top-to-bottom, left-to-right to maintain reading order
         results.sort(key=lambda r: (r[0][0][1], r[0][0][0]))
         
-        text_lines = [text for bbox, text, confidence in results if confidence > 0.1]
+        # Keep all text lines regardless of confidence to preserve handwritten details
+        text_lines = [text for bbox, text, confidence in results]
         extracted_text = " ".join(text_lines).strip()
         
         if not extracted_text:
