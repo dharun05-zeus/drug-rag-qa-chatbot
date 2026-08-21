@@ -294,16 +294,33 @@ def query_rag(query_text: str, role: str = "doctor", history: list = None, attac
     try:
         http_client = httpx.Client(verify=False)
         client = Groq(api_key=groq_api_key, http_client=http_client)
-        response = client.chat.completions.create(
-            model=groq_model,
-            messages=messages,
-            temperature=0.0,
-            max_tokens=800
-        )
-        answer = response.choices[0].message.content
         
+        answer = ""
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            response = client.chat.completions.create(
+                model=groq_model,
+                messages=messages,
+                temperature=0.0,
+                max_tokens=1500
+            )
+            answer = response.choices[0].message.content or ""
+            
+            # Log response diagnostics for debugging blank answers
+            print(f"\n[DEBUG LLM RESPONSE - ATTEMPT {attempt+1}]")
+            print(f"-> Raw response length: {len(answer)} characters")
+            
+            if answer.strip():
+                print(f"-> Raw response preview: {repr(answer[:120])}...")
+                break
+            else:
+                print(f"-> Warning: Received empty response from Groq. Retrying in 1s...")
+                import time
+                time.sleep(1.0)
+            
         # Clean output
         clean_answer = extract_final_answer(answer)
+        print(f"-> Clean response length: {len(clean_answer)} characters\n")
         
         # Enforce patient safety caveat programmatically if the LLM did not output it
         if role == "patient":
