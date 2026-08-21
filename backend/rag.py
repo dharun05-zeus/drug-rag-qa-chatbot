@@ -218,7 +218,10 @@ def query_rag(query_text: str, role: str = "doctor", history: list = None, attac
                 "distance": float(dist)
             })
             
-            if dist <= DISTANCE_THRESHOLD:
+            # If it's an attachment query, only include ChromaDB chunks if they match very strongly
+            current_threshold = 0.95 if (attachments and is_attachment_query(query_text, attachments)) else DISTANCE_THRESHOLD
+            
+            if dist <= current_threshold:
                 context_chunks.append(f"--- START CHUNK (Source: {source_file}, Page {page_num}) ---\n{doc}\n--- END CHUNK ---")
                 citation_key = (source_file, page_num)
                 if citation_key not in seen_citations:
