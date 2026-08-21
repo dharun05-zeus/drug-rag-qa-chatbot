@@ -8,14 +8,15 @@ os.environ["HF_HUB_DISABLE_SSL_VERIFICATION"] = "1"
 
 import requests
 import urllib3
-from huggingface_hub import configure_http_backend
-
-def custom_session_factory() -> requests.Session:
-    session = requests.Session()
-    session.verify = False  # Bypass SSL verification
-    return session
-
-configure_http_backend(backend_factory=custom_session_factory)
+try:
+    from huggingface_hub import configure_http_backend
+    def custom_session_factory() -> requests.Session:
+        session = requests.Session()
+        session.verify = False  # Bypass SSL verification
+        return session
+    configure_http_backend(backend_factory=custom_session_factory)
+except ImportError:
+    pass
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 import glob
