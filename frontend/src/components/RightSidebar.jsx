@@ -24,9 +24,9 @@ function RightSidebar({ chats = [], selectedChatId, onSelectChat, onDeleteChat, 
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '2px 8px',
+                padding: '0 14px',
                 marginBottom: '4px',
-                borderRadius: '6px',
+                borderRadius: '20px',
                 backgroundColor: isActive ? '#f2be18' : 'transparent',
                 transition: 'background-color 0.2s'
               }}
@@ -40,10 +40,10 @@ function RightSidebar({ chats = [], selectedChatId, onSelectChat, onDeleteChat, 
                   textAlign: 'left',
                   background: 'none',
                   border: 'none',
-                  color: isActive ? '#1a1a1a' : '#eaeaea',
-                  padding: '8px 4px',
-                  fontWeight: isActive ? '600' : 'normal',
-                  fontSize: '14px',
+                  color: isActive ? '#1e293b' : '#475569',
+                  padding: '10px 0',
+                  fontWeight: '600',
+                  fontSize: '0.85rem',
                   cursor: 'pointer',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
@@ -63,25 +63,25 @@ function RightSidebar({ chats = [], selectedChatId, onSelectChat, onDeleteChat, 
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: isActive ? '#1a1a1a' : '#888',
+                  color: isActive ? '#1e293b' : '#94a3b8',
                   cursor: 'pointer',
                   padding: '6px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  borderRadius: '4px',
+                  borderRadius: '50%',
                   transition: 'all 0.2s'
                 }}
                 onMouseOver={(e) => {
                   e.currentTarget.style.color = '#ef4444';
-                  e.currentTarget.style.backgroundColor = isActive ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.05)';
+                  e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.05)';
                 }}
                 onMouseOut={(e) => {
-                  e.currentTarget.style.color = isActive ? '#1a1a1a' : '#888';
+                  e.currentTarget.style.color = isActive ? '#1e293b' : '#94a3b8';
                   e.currentTarget.style.backgroundColor = 'transparent';
                 }}
               >
-                <Trash2 size={14} />
+                <Trash2 size={13} />
               </button>
             </div>
           );
