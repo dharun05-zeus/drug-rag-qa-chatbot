@@ -213,6 +213,17 @@ def chat_endpoint(request: ChatRequest):
         print(f"Error handling chat endpoint: {e}")
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
+@app.delete("/session/{session_id}")
+def delete_session_endpoint(session_id: str):
+    """
+    Deletes the session history and session attachments associated with the given session_id.
+    """
+    if session_id in session_histories:
+        del session_histories[session_id]
+    if session_id in session_attachments:
+        del session_attachments[session_id]
+    return {"status": "success", "message": f"Session {session_id} deleted successfully."}
+
 if __name__ == "__main__":
     import uvicorn
     # Start the server locally

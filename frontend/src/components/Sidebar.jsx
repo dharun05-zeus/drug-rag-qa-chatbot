@@ -41,16 +41,20 @@ function Sidebar({ isOpen, onClose, documents = [], activeModel, onNewChat }) {
             justifyContent: 'center',
             gap: '8px',
             padding: '10px',
-            backgroundColor: '#f2be18',
-            color: '#1a1a1a',
-            border: 'none',
+            backgroundColor: 'transparent',
+            color: '#f2be18',
+            border: '1px solid #f2be18',
             borderRadius: '6px',
             fontWeight: '600',
             cursor: 'pointer',
-            transition: 'background-color 0.2s'
+            transition: 'all 0.2s'
           }}
-          onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#d9aa12'}
-          onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#f2be18'}
+          onMouseOver={(e) => {
+            e.currentTarget.style.backgroundColor = 'rgba(242, 190, 24, 0.1)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }}
         >
           <MessageSquare size={16} />
           <span>+ New Chat</span>

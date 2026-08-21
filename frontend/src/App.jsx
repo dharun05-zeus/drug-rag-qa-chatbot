@@ -310,6 +310,46 @@ function App() {
     setSelectedChatId(newChatId);
   };
 
+  const handleDeleteChat = async (chatId) => {
+    const chatToDelete = chats.find(c => c.id === chatId);
+    if (!chatToDelete) return;
+
+    const updatedChats = chats.filter(c => c.id !== chatId);
+    setChats(updatedChats);
+
+    if (selectedChatId === chatId) {
+      if (updatedChats.length > 0) {
+        setSelectedChatId(updatedChats[updatedChats.length - 1].id);
+      } else {
+        const newChatId = 'chat-' + Date.now();
+        setChats([
+          {
+            id: newChatId,
+            sessionId: generateUUID(),
+            title: "New Chat...",
+            messages: [
+              {
+                sender: 'bot',
+                text: "Hello! I am medai, your clinical prescribing assistant. Ask about indexed drugs and I will reply with page-level citations.",
+                citations: []
+              }
+            ],
+            conversationHistory: []
+          }
+        ]);
+        setSelectedChatId(newChatId);
+      }
+    }
+
+    try {
+      await fetch(`${BACKEND_URL}/session/${chatToDelete.sessionId}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.error("Failed to delete chat session on backend:", err);
+    }
+  };
+
   const handleSuggestionSelect = (query) => {
     setInput(query);
   };
@@ -361,6 +401,7 @@ function App() {
         chats={chats}
         selectedChatId={selectedChatId}
         onSelectChat={setSelectedChatId}
+        onDeleteChat={handleDeleteChat}
         onClearHistory={handleClearAllHistory}
       />
     </div>
