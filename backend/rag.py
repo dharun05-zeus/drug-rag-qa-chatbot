@@ -1,4 +1,9 @@
 import os
+import sys
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+except AttributeError:
+    pass
 import ssl
 # Bypass SSL verification to avoid CERTIFICATE_VERIFY_FAILED error when downloading HuggingFace models
 ssl._create_default_https_context = ssl._create_unverified_context

@@ -49,6 +49,20 @@ function MessageBubble({ msg, activeModel }) {
         '<span class="inline-citation">$1 (Pg. $2)</span>'
       );
 
+      // Header Check
+      if (processed.trim().startsWith('### ')) {
+        const headerText = processed.replace(/^###\s+/, '');
+        return <h3 key={idx} dangerouslySetInnerHTML={{ __html: headerText }} style={{ margin: '12px 0 6px 0', color: '#f2be18' }} />;
+      }
+      if (processed.trim().startsWith('## ')) {
+        const headerText = processed.replace(/^##\s+/, '');
+        return <h2 key={idx} dangerouslySetInnerHTML={{ __html: headerText }} style={{ margin: '14px 0 8px 0', color: '#f2be18' }} />;
+      }
+      if (processed.trim().startsWith('# ')) {
+        const headerText = processed.replace(/^#\s+/, '');
+        return <h1 key={idx} dangerouslySetInnerHTML={{ __html: headerText }} style={{ margin: '16px 0 10px 0', color: '#f2be18' }} />;
+      }
+
       // Bullet Point Check
       if (processed.trim().startsWith('- ') || processed.trim().startsWith('* ')) {
         const item = processed.replace(/^[\-\*]\s+/, '');
