@@ -34,6 +34,7 @@ function App() {
   const [chats, setChats] = useState([
     {
       id: 'chat-1',
+      sessionId: generateUUID(),
       title: 'New Chat...',
       messages: [
         {
@@ -106,6 +107,7 @@ function App() {
       currentChatId = 'chat-' + Date.now();
       chatToUpdate = {
         id: currentChatId,
+        sessionId: generateUUID(),
         title: userQuery.substring(0, 30) + (userQuery.length > 30 ? '...' : ''),
         messages: [
           {
@@ -123,6 +125,8 @@ function App() {
       chatToUpdate.title = userQuery.substring(0, 30) + (userQuery.length > 30 ? '...' : '');
     }
 
+    const activeSessionId = chatToUpdate.sessionId || sessionId;
+
     // Add user message
     chatToUpdate.messages = [...chatToUpdate.messages, { sender: 'user', text: userQuery }];
     setChats(updatedChats);
@@ -137,7 +141,7 @@ function App() {
         body: JSON.stringify({
           question: userQuery,
           role: audienceMode,
-          session_id: sessionId
+          session_id: activeSessionId
         })
       });
 
@@ -190,9 +194,12 @@ function App() {
 
   const handleUploadFile = async (file) => {
     setIsLoading(true);
+    const activeChat = chats.find(c => c.id === selectedChatId) || chats[0];
+    const activeSessionId = activeChat ? activeChat.sessionId : sessionId;
+
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('session_id', sessionId);
+    formData.append('session_id', activeSessionId);
     
     try {
       const response = await fetch(`${BACKEND_URL}/upload`, {
@@ -267,6 +274,7 @@ function App() {
     setChats([
       {
         id: newChatId,
+        sessionId: generateUUID(),
         title: "New Chat...",
         messages: [
           {
@@ -287,6 +295,7 @@ function App() {
       ...prev,
       {
         id: newChatId,
+        sessionId: generateUUID(),
         title: "New Chat...",
         messages: [
           {
