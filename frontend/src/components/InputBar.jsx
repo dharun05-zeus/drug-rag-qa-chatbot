@@ -6,11 +6,17 @@ import { SendHorizontal, Paperclip, Mic } from 'lucide-react';
  * Renders the text entry form for user queries with attachment, mic, dark input field,
  * and yellow send button. Also includes the clinical disclaimer.
  */
-function InputBar({ value, onChange, onSubmit, isLoading, isConnected }) {
+function InputBar({ value, onChange, onSubmit, isLoading, isConnected, onUploadFile }) {
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       onSubmit(e);
+    }
+  };
+
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0] && onUploadFile) {
+      onUploadFile(e.target.files[0]);
     }
   };
 
@@ -23,9 +29,18 @@ function InputBar({ value, onChange, onSubmit, isLoading, isConnected }) {
           className="input-utility-btn" 
           title="Attach file"
           disabled={isLoading || !isConnected}
+          onClick={() => document.getElementById('file-upload-input').click()}
         >
           <Paperclip size={18} />
         </button>
+        <input
+          type="file"
+          id="file-upload-input"
+          style={{ display: 'none' }}
+          onChange={handleFileChange}
+          accept=".pdf,.docx,.doc,.png,.jpg,.jpeg,.webp,.bmp,.tiff,.txt,.md,.json,.csv,.xml"
+        />
+
 
         <button 
           type="button" 

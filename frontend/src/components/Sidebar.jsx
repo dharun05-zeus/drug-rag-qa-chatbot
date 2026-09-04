@@ -30,6 +30,37 @@ function Sidebar({ isOpen, onClose, documents = [], activeModel, onNewChat }) {
         </button>
       </div>
 
+      <div className="new-chat-btn-container" style={{ padding: '0 16px', marginBottom: '12px' }}>
+        <button 
+          onClick={onNewChat}
+          className="new-chat-trigger-btn"
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            padding: '10px',
+            backgroundColor: 'transparent',
+            color: '#f2be18',
+            border: '1px solid #f2be18',
+            borderRadius: '6px',
+            fontWeight: '600',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.backgroundColor = 'rgba(242, 190, 24, 0.1)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }}
+        >
+          <MessageSquare size={16} />
+          <span>+ New Chat</span>
+        </button>
+      </div>
+
       <div className="sidebar-menu-list">
         {/* Menu Items */}
         <button className="menu-item active" onClick={onNewChat}>

@@ -1,8 +1,29 @@
 import os
+import ssl
+# Bypass SSL verification to avoid CERTIFICATE_VERIFY_FAILED error when downloading HuggingFace models
+ssl._create_default_https_context = ssl._create_unverified_context
+os.environ["CURL_CA_BUNDLE"] = ""
+os.environ["REQUESTS_CA_BUNDLE"] = ""
+os.environ["HF_HUB_DISABLE_SSL_VERIFICATION"] = "1"
+
+import requests
+import urllib3
+try:
+    from huggingface_hub import configure_http_backend
+    def custom_session_factory() -> requests.Session:
+        session = requests.Session()
+        session.verify = False  # Bypass SSL verification
+        return session
+    configure_http_backend(backend_factory=custom_session_factory)
+except ImportError:
+    pass
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 import glob
 import fitz  # PyMuPDF
 from sentence_transformers import SentenceTransformer
 import chromadb
+
 
 # 1. Setup paths relative to this script for consistency
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))

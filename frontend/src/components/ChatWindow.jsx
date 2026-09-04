@@ -7,7 +7,7 @@ import MessageBubble from './MessageBubble';
  * Renders the welcome message, message bubble stream, 
  * and shows clickable suggested query cards when the chat is empty/new.
  */
-function ChatWindow({ messages, isLoading, onSelectQuery, activeModel }) {
+function ChatWindow({ messages, isLoading, onSelectQuery, activeModel, onViewCitation }) {
   const messagesEndRef = useRef(null);
 
   const sampleQueries = [
@@ -32,7 +32,7 @@ function ChatWindow({ messages, isLoading, onSelectQuery, activeModel }) {
     <div className="chat-window">
       <div className="messages-scroll-area">
         {messages.map((msg, index) => (
-          <MessageBubble key={index} msg={msg} activeModel={activeModel} />
+          <MessageBubble key={index} msg={msg} activeModel={activeModel} onViewCitation={onViewCitation} />
         ))}
 
         {showSuggestions && (

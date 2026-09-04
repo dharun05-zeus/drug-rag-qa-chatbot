@@ -17,7 +17,7 @@ import {
  * Implements markdown rendering, warning bubbles for refusals,
  * interactive citation badges, and a hidden RAG debug scores panel.
  */
-function MessageBubble({ msg, activeModel }) {
+function MessageBubble({ msg, activeModel, onViewCitation }) {
   const isUser = msg.sender === 'user';
   const isRefusal = msg.text && msg.text.startsWith("I don't have this information in the provided documents.");
   
@@ -48,6 +48,20 @@ function MessageBubble({ msg, activeModel }) {
         /\(Source:\s*([a-zA-Z0-9_\-\.]+)\s*,\s*[Pp]age\s*(\d+)\)/g, 
         '<span class="inline-citation">$1 (Pg. $2)</span>'
       );
+
+      // Header Check
+      if (processed.trim().startsWith('### ')) {
+        const headerText = processed.replace(/^###\s+/, '');
+        return <h3 key={idx} dangerouslySetInnerHTML={{ __html: headerText }} style={{ margin: '12px 0 6px 0', color: '#f2be18' }} />;
+      }
+      if (processed.trim().startsWith('## ')) {
+        const headerText = processed.replace(/^##\s+/, '');
+        return <h2 key={idx} dangerouslySetInnerHTML={{ __html: headerText }} style={{ margin: '14px 0 8px 0', color: '#f2be18' }} />;
+      }
+      if (processed.trim().startsWith('# ')) {
+        const headerText = processed.replace(/^#\s+/, '');
+        return <h1 key={idx} dangerouslySetInnerHTML={{ __html: headerText }} style={{ margin: '16px 0 10px 0', color: '#f2be18' }} />;
+      }
 
       // Bullet Point Check
       if (processed.trim().startsWith('- ') || processed.trim().startsWith('* ')) {
@@ -128,21 +142,20 @@ function MessageBubble({ msg, activeModel }) {
               {msg.citations.map((cite, cIdx) => (
                 <div key={cIdx} className="citation-badge-wrapper">
                   <button 
-                    className="citation-pill-btn" 
-                    onClick={() => toggleTooltip(cIdx)}
-                    title="Click to view reference details"
+                    className="citation-pill-btn clickable-citation" 
+                    onClick={() => {
+                      if (onViewCitation) {
+                        onViewCitation(cite);
+                      } else {
+                        toggleTooltip(cIdx);
+                      }
+                    }}
+                    title="Click to view reference page with highlight"
                   >
-                    <FileText size={11} />
+                    <FileText size={12} />
                     <span>{cite.document} · Page {cite.page}</span>
+                    <span className="citation-view-tag">View Page</span>
                   </button>
-                  
-                  {activeTooltip === cIdx && (
-                    <div className="citation-tooltip">
-                      <p><strong>Referenced Section</strong></p>
-                      <p>Source document verification page: {cite.page}</p>
-                      <p className="tooltip-sub">Facts checked against metadata index.</p>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
