@@ -163,13 +163,27 @@ def get_page_image_endpoint(
     chunk_text = lookup_chunk_text(chunk_id)
     
     if chunk_text:
-        # a. Exact match first
+        # a. Exact match first (fastest and most accurate)
         rects = target_page.search_for(chunk_text)
-        # b. Word-prefix fallback (~8-10 words)
+        
+        # b. Word-prefix fallback using a distinctive 18-word substring
         if not rects:
-            prefix_words = " ".join(chunk_text.split()[:10])
-            if prefix_words:
+            words = chunk_text.split()
+            # Try 18 words first, then 12 words if text is shorter
+            prefix_len = min(18, len(words))
+            if prefix_len > 0:
+                prefix_words = " ".join(words[:prefix_len])
                 rects = target_page.search_for(prefix_words)
+            if not rects and len(words) > 8:
+                prefix_words = " ".join(words[:8])
+                rects = target_page.search_for(prefix_words)
+                
+            # Filter outliers if fallback produced scattered results
+            if rects and len(rects) > 1:
+                y0_vals = sorted([r.y0 for r in rects])
+                median_y0 = y0_vals[len(y0_vals) // 2]
+                rects = [r for r in rects if abs(r.y0 - median_y0) <= 200]
+                
         # c. Fallback to empty highlight list if still no match
         if not rects:
             rects = []
