@@ -531,9 +531,10 @@ function App() {
                           top,
                           width,
                           height,
-                          background: 'rgba(255, 235, 59, 0.4)',
-                          border: '1px solid rgba(253, 216, 53, 0.8)',
+                          background: 'rgba(255, 235, 59, 0.25)',
+                          border: '1px solid rgba(234, 179, 8, 0.45)',
                           borderRadius: '2px',
+                          mixBlendMode: 'multiply',
                           pointerEvents: 'none'
                         }}
                       />

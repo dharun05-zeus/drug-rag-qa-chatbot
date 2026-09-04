@@ -93,3 +93,15 @@ To verify the dual-tier safety checks and vector calibration, try asking these q
 3.  **Out-of-scope block**: *"How do you bake a chocolate chip cookie?"*
     *   *Expected*: The vector distance exceeds `1.25` (e.g. `1.94`). The query is intercepted at the database level (Tier-1) and immediately refused without calling the LLM.
 4.  **Retrieval details check**: Click the **"Show Retrieval Details"** link under any bot bubble to inspect the exact L2 similarity distance metrics returned by ChromaDB.
+
+---
+
+## 🔍 View Page with Highlight Feature
+
+The dashboard includes an interactive citation viewer that renders high-resolution (150 DPI) source PDF pages directly in a modal overlay with highlighted bounding boxes:
+
+1. **Interactive Citations:** Clicking any citation badge in a response message triggers `GET /page-image` to render the original PDF page and highlight the referenced passage.
+2. **Chunk-Level Provenance by Design:** Chunks are indexed at ~300 words (2,000+ characters) in ChromaDB. Highlighting covers the full retrieved context chunk rather than a single isolated sentence, providing complete transparency into the exact context that grounded the model's answer.
+3. **Responsive Scaling:** Highlight bounding boxes are styled using percentage coordinates (`left`, `top`, `width`, `height`), preserving alignment across all screen sizes and zoom levels.
+4. **Race-Condition Safe:** In-flight image requests are aborted using `AbortController` when switching rapidly between citations.
+
