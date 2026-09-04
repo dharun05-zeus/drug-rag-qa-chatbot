@@ -213,10 +213,13 @@ def query_rag(query_text: str, role: str = "doctor", history: list = None, attac
     
     if chroma_results and chroma_results["documents"] and chroma_results["documents"][0]:
         print("\n--- ChromaDB Retrieval Debug Scores ---")
+        chunk_ids = chroma_results.get("ids", [[]])[0] if "ids" in chroma_results else []
         for idx, (doc, meta, dist) in enumerate(zip(chroma_results["documents"][0], chroma_results["metadatas"][0], chroma_results["distances"][0])):
             source_file = meta.get("source", "Unknown")
+            doc_id = meta.get("doc_id", source_file)
             page_num = meta.get("page", 0)
-            print(f"Rank {idx+1} | Document: {source_file} (Page {page_num}) | Distance Score: {dist:.4f}")
+            chunk_id = chunk_ids[idx] if idx < len(chunk_ids) else f"{source_file}_p{page_num}_c{idx}"
+            print(f"Rank {idx+1} | Document: {source_file} (Page {page_num}) | Chunk: {chunk_id} | Distance Score: {dist:.4f}")
             
             debug_scores.append({
                 "document": source_file,
@@ -229,12 +232,14 @@ def query_rag(query_text: str, role: str = "doctor", history: list = None, attac
             
             if dist <= current_threshold:
                 context_chunks.append(f"--- START CHUNK (Source: {source_file}, Page {page_num}) ---\n{doc}\n--- END CHUNK ---")
-                citation_key = (source_file, page_num)
+                citation_key = (source_file, page_num, chunk_id)
                 if citation_key not in seen_citations:
                     seen_citations.add(citation_key)
                     citations.append({
                         "document": source_file,
-                        "page": page_num
+                        "doc_id": doc_id,
+                        "page": page_num,
+                        "chunk_id": chunk_id
                     })
         print("---------------------------------------\n")
         best_chroma_distance = chroma_results["distances"][0][0]
@@ -257,9 +262,11 @@ def query_rag(query_text: str, role: str = "doctor", history: list = None, attac
         
         print("\n--- Attachment Retrieval Debug Scores ---")
         for idx, (chunk, dist) in enumerate(scored_attachment_chunks[:4]):
-            source_file = chunk["metadata"]["source"]
-            page_num = chunk["metadata"]["page"]
-            print(f"Rank {idx+1} | Attachment: {source_file} (Page {page_num}) | Distance Score: {dist:.4f}")
+            source_file = chunk["metadata"].get("source", "Unknown")
+            doc_id = chunk["metadata"].get("doc_id", source_file)
+            page_num = chunk["metadata"].get("page", 1)
+            chunk_id = chunk["metadata"].get("chunk_id", f"{source_file}_p{page_num}_c{chunk['metadata'].get('chunk_index', 0)}")
+            print(f"Rank {idx+1} | Attachment: {source_file} (Page {page_num}) | Chunk: {chunk_id} | Distance Score: {dist:.4f}")
             
             debug_scores.append({
                 "document": source_file,
@@ -272,12 +279,14 @@ def query_rag(query_text: str, role: str = "doctor", history: list = None, attac
                 attachment_context_chunks.append(
                     f"--- START CHUNK (Source: {source_file}, Page {page_num}) ---\n{chunk['text']}\n--- END CHUNK ---"
                 )
-                citation_key = (source_file, page_num)
+                citation_key = (source_file, page_num, chunk_id)
                 if citation_key not in seen_citations:
                     seen_citations.add(citation_key)
                     citations.append({
                         "document": source_file,
-                        "page": page_num
+                        "doc_id": doc_id,
+                        "page": page_num,
+                        "chunk_id": chunk_id
                     })
         print("---------------------------------------\n")
         if scored_attachment_chunks:
@@ -393,6 +402,10 @@ def query_rag(query_text: str, role: str = "doctor", history: list = None, attac
             if (cite["document"], cite["page"]) in cited_set:
                 filtered_citations.append(cite)
                 
+        # If the LLM didn't include explicit cite tags, fallback to all retrieved relevant citations
+        if not filtered_citations and citations:
+            filtered_citations = citations
+                
         return {
             "answer": clean_answer,
             "citations": filtered_citations,
@@ -403,7 +416,7 @@ def query_rag(query_text: str, role: str = "doctor", history: list = None, attac
         print(f"Error calling Groq API: {e}")
         return {
             "answer": f"An error occurred while communicating with the language model: {str(e)}",
-            "citations": [],
+            "citations": citations,
             "debug_scores": debug_scores
         }
 

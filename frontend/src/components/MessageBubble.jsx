@@ -17,7 +17,7 @@ import {
  * Implements markdown rendering, warning bubbles for refusals,
  * interactive citation badges, and a hidden RAG debug scores panel.
  */
-function MessageBubble({ msg, activeModel }) {
+function MessageBubble({ msg, activeModel, onViewCitation }) {
   const isUser = msg.sender === 'user';
   const isRefusal = msg.text && msg.text.startsWith("I don't have this information in the provided documents.");
   
@@ -142,21 +142,20 @@ function MessageBubble({ msg, activeModel }) {
               {msg.citations.map((cite, cIdx) => (
                 <div key={cIdx} className="citation-badge-wrapper">
                   <button 
-                    className="citation-pill-btn" 
-                    onClick={() => toggleTooltip(cIdx)}
-                    title="Click to view reference details"
+                    className="citation-pill-btn clickable-citation" 
+                    onClick={() => {
+                      if (onViewCitation) {
+                        onViewCitation(cite);
+                      } else {
+                        toggleTooltip(cIdx);
+                      }
+                    }}
+                    title="Click to view reference page with highlight"
                   >
-                    <FileText size={11} />
+                    <FileText size={12} />
                     <span>{cite.document} · Page {cite.page}</span>
+                    <span className="citation-view-tag">View Page</span>
                   </button>
-                  
-                  {activeTooltip === cIdx && (
-                    <div className="citation-tooltip">
-                      <p><strong>Referenced Section</strong></p>
-                      <p>Source document verification page: {cite.page}</p>
-                      <p className="tooltip-sub">Facts checked against metadata index.</p>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>

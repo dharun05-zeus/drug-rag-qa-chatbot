@@ -4,7 +4,9 @@ try:
     sys.stdout.reconfigure(encoding='utf-8')
 except AttributeError:
     pass
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+import base64
+import fitz  # PyMuPDF
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional
@@ -45,7 +47,9 @@ class ChatRequest(BaseModel):
 
 class Citation(BaseModel):
     document: str = Field(..., description="Name of the source PDF file")
+    doc_id: Optional[str] = Field(None, description="Identifier of the source PDF file")
     page: int = Field(..., description="1-indexed page number in the source PDF")
+    chunk_id: Optional[str] = Field(None, description="Unique chunk ID for citation highlighting")
 
 class DebugScore(BaseModel):
     document: str = Field(..., description="Name of the source PDF file")
@@ -57,6 +61,18 @@ class ChatResponse(BaseModel):
     citations: List[Citation] = Field(..., description="List of source file and page citations")
     conversation_history: List[ChatMessage] = Field(..., description="Updated chat history including the new turn")
     debug_scores: Optional[List[DebugScore]] = Field(default=None, description="Optional debug similarity scores")
+
+class HighlightRect(BaseModel):
+    x: float
+    y: float
+    width: float
+    height: float
+
+class PageImageResponse(BaseModel):
+    image_base64: str
+    image_width: int
+    image_height: int
+    highlights: List[HighlightRect]
 
 class DocumentSource(BaseModel):
     name: str = Field(..., description="Name of the source PDF file")
@@ -71,7 +87,118 @@ class UploadResponse(BaseModel):
 session_histories = {}
 session_attachments = {}
 
+# Document paths mapping
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+
+DOC_PATHS = {
+    "rinvoq_pi.pdf": os.path.join(DATA_DIR, "rinvoq_pi.pdf"),
+    "hackathonol_label.pdf": os.path.join(DATA_DIR, "hackathonol_label.pdf"),
+}
+
+def resolve_pdf_path(doc_id: str) -> Optional[str]:
+    if not doc_id:
+        return None
+    # 1. Direct dictionary lookup
+    if doc_id in DOC_PATHS and os.path.exists(DOC_PATHS[doc_id]):
+        return DOC_PATHS[doc_id]
+    # 2. Check filename in DATA_DIR
+    fname = os.path.basename(doc_id)
+    candidate = os.path.join(DATA_DIR, fname)
+    if os.path.exists(candidate):
+        return candidate
+    # 3. Case-insensitive check in DATA_DIR
+    if os.path.exists(DATA_DIR):
+        for f in os.listdir(DATA_DIR):
+            if f.lower() == fname.lower() and f.endswith(".pdf"):
+                return os.path.join(DATA_DIR, f)
+    return None
+
+def lookup_chunk_text(chunk_id: Optional[str]) -> Optional[str]:
+    if not chunk_id:
+        return None
+    try:
+        collection = chroma_client.get_collection("drug_info")
+        data = collection.get(ids=[chunk_id], include=["documents"])
+        if data and data.get("documents") and len(data["documents"]) > 0:
+            return data["documents"][0]
+    except Exception as e:
+        print(f"Error looking up chunk in ChromaDB: {e}")
+        
+    for sid, chunks in session_attachments.items():
+        for ch in chunks:
+            if ch.get("metadata", {}).get("chunk_id") == chunk_id:
+                return ch.get("text")
+    return None
+
 # --- API Endpoints ---
+
+@app.get("/page-image", response_model=PageImageResponse)
+def get_page_image_endpoint(
+    doc_id: str = Query(..., description="Document identifier or filename"),
+    page: int = Query(..., description="1-indexed target page number"),
+    chunk_id: Optional[str] = Query(None, description="Optional chunk ID to highlight")
+):
+    """
+    Renders a specific page of a PDF document as a 150 DPI base64 PNG,
+    and returns pixel-scaled highlight bounding boxes for the referenced chunk text.
+    """
+    filepath = resolve_pdf_path(doc_id)
+    if not filepath or not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail=f"Document '{doc_id}' not found.")
+        
+    try:
+        doc = fitz.open(filepath)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to open PDF document: {str(e)}")
+        
+    if page < 1 or page > len(doc):
+        num_pages = len(doc)
+        doc.close()
+        raise HTTPException(status_code=404, detail=f"Page {page} out of range (document has {num_pages} pages).")
+        
+    target_page = doc[page - 1]
+    
+    # Text search strategy for highlights
+    rects = []
+    chunk_text = lookup_chunk_text(chunk_id)
+    
+    if chunk_text:
+        # a. Exact match first
+        rects = target_page.search_for(chunk_text)
+        # b. Word-prefix fallback (~8-10 words)
+        if not rects:
+            prefix_words = " ".join(chunk_text.split()[:10])
+            if prefix_words:
+                rects = target_page.search_for(prefix_words)
+        # c. Fallback to empty highlight list if still no match
+        if not rects:
+            rects = []
+            
+    # Render page to pixmap at fixed 150 DPI without drawing on it
+    dpi = 150
+    pix = target_page.get_pixmap(dpi=dpi)
+    png_bytes = pix.tobytes("png")
+    image_base64 = base64.b64encode(png_bytes).decode("utf-8")
+    
+    # Scale from 72 pt/inch to 150 DPI
+    scale = dpi / 72.0
+    highlights = []
+    for r in rects:
+        highlights.append(HighlightRect(
+            x=float(r.x0 * scale),
+            y=float(r.y0 * scale),
+            width=float((r.x1 - r.x0) * scale),
+            height=float((r.y1 - r.y0) * scale)
+        ))
+        
+    doc.close()
+    
+    return PageImageResponse(
+        image_base64=image_base64,
+        image_width=pix.width,
+        image_height=pix.height,
+        highlights=highlights
+    )
 
 @app.get("/documents", response_model=List[DocumentSource])
 def get_documents_endpoint():
@@ -189,12 +316,14 @@ def chat_endpoint(request: ChatRequest):
         history.append(assistant_message)
         session_histories[request.session_id] = history
         
-        # Build response citations
+        # Build response citations with doc_id and chunk_id
         citations = []
         for cite in result["citations"]:
             citations.append(Citation(
                 document=cite["document"],
-                page=cite["page"]
+                doc_id=cite.get("doc_id", cite["document"]),
+                page=cite["page"],
+                chunk_id=cite.get("chunk_id")
             ))
             
         # Build response debug scores

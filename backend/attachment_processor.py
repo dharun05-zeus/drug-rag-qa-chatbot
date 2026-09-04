@@ -193,9 +193,11 @@ def process_attachment(file_bytes: bytes, filename: str) -> list[dict]:
                 "text": chunk,
                 "metadata": {
                     "source": filename,
+                    "doc_id": filename,
                     "page": page["page"],
                     "source_type": "user_attachment",
-                    "chunk_index": idx
+                    "chunk_index": idx,
+                    "chunk_id": f"{filename}_p{page['page']}_c{idx}"
                 }
             })
             

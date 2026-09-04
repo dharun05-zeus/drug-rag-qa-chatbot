@@ -53,6 +53,12 @@ function App() {
   const [documents, setDocuments] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Citation Page Viewer Modal State
+  const [pageView, setPageView] = useState(null);
+  const [isPageViewLoading, setIsPageViewLoading] = useState(false);
+  const [pageViewError, setPageViewError] = useState(null);
+  const activeCitationRequestRef = React.useRef(null);
+
   // Get current chat messages & history
   const activeChat = chats.find(c => c.id === selectedChatId) || chats[0];
   const messages = activeChat ? activeChat.messages : [];
@@ -354,6 +360,61 @@ function App() {
     setInput(query);
   };
 
+  const viewCitation = async (citation) => {
+    // Abort previous citation request if still in flight
+    if (activeCitationRequestRef.current) {
+      activeCitationRequestRef.current.abort();
+    }
+
+    const abortController = new AbortController();
+    activeCitationRequestRef.current = abortController;
+
+    const docId = citation.doc_id || citation.docId || citation.document;
+    const pageNum = citation.page;
+    const chunkId = citation.chunk_id || citation.chunkId || '';
+
+    setIsPageViewLoading(true);
+    setPageViewError(null);
+    setPageView({
+      docId: docId,
+      pageNum: pageNum,
+      imageUrl: null,
+      imageWidth: 0,
+      imageHeight: 0,
+      highlights: []
+    });
+
+    try {
+      const url = `${BACKEND_URL}/page-image?doc_id=${encodeURIComponent(docId)}&page=${pageNum}&chunk_id=${encodeURIComponent(chunkId)}`;
+      const response = await fetch(url, { signal: abortController.signal });
+
+      if (!response.ok) {
+        throw new Error(`Server returned status ${response.status}`);
+      }
+
+      const data = await response.json();
+      const dataUrl = `data:image/png;base64,${data.image_base64}`;
+
+      setPageView({
+        docId: docId,
+        pageNum: pageNum,
+        imageUrl: dataUrl,
+        imageWidth: data.image_width,
+        imageHeight: data.image_height,
+        highlights: data.highlights || []
+      });
+      setIsPageViewLoading(false);
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        // Superceded by a newer citation click
+        return;
+      }
+      console.error("Failed to load page image:", err);
+      setPageViewError("Couldn't load this page");
+      setIsPageViewLoading(false);
+    }
+  };
+
   return (
     <div className="app-workspace">
       {/* Collapsible Left Sidebar */}
@@ -382,6 +443,7 @@ function App() {
           isLoading={isLoading} 
           onSelectQuery={handleSuggestionSelect}
           activeModel={activeModel}
+          onViewCitation={viewCitation}
         />
         
         <InputBar 
@@ -404,6 +466,85 @@ function App() {
         onDeleteChat={handleDeleteChat}
         onClearHistory={handleClearAllHistory}
       />
+
+      {/* Citation Page Highlight Modal */}
+      {pageView && (
+        <div className="citation-modal-backdrop" onClick={() => setPageView(null)}>
+          <div className="citation-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="citation-modal-header">
+              <div className="citation-modal-title-area">
+                <span className="citation-doc-tag">{pageView.docId}</span>
+                <span className="citation-page-heading">Page {pageView.pageNum}</span>
+                {pageView.highlights && pageView.highlights.length > 0 && (
+                  <span className="citation-highlights-badge">
+                    {pageView.highlights.length} highlighted section{pageView.highlights.length > 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+              <button 
+                className="citation-modal-close-btn" 
+                onClick={() => setPageView(null)}
+                title="Close modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="citation-modal-content">
+              {isPageViewLoading && (
+                <div className="citation-modal-loader">
+                  <div className="typing-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <p>Loading referenced page with highlights...</p>
+                </div>
+              )}
+
+              {pageViewError && (
+                <div className="citation-modal-error">
+                  <p className="error-lead">⚠️ {pageViewError}</p>
+                  <p className="error-desc">Could not render page {pageView.pageNum}. Please verify document availability.</p>
+                </div>
+              )}
+
+              {pageView.imageUrl && (
+                <div className="citation-image-wrapper" style={{ position: 'relative' }}>
+                  <img 
+                    src={pageView.imageUrl} 
+                    alt={`Page ${pageView.pageNum} of ${pageView.docId}`}
+                    style={{ width: '100%', display: 'block' }}
+                  />
+                  {pageView.highlights && pageView.highlights.map((h, hIdx) => {
+                    const left = `${(h.x / pageView.imageWidth) * 100}%`;
+                    const top = `${(h.y / pageView.imageHeight) * 100}%`;
+                    const width = `${(h.width / pageView.imageWidth) * 100}%`;
+                    const height = `${(h.height / pageView.imageHeight) * 100}%`;
+                    return (
+                      <div
+                        key={hIdx}
+                        className="citation-highlight-rect"
+                        style={{
+                          position: 'absolute',
+                          left,
+                          top,
+                          width,
+                          height,
+                          background: 'rgba(255, 235, 59, 0.4)',
+                          border: '1px solid rgba(253, 216, 53, 0.8)',
+                          borderRadius: '2px',
+                          pointerEvents: 'none'
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
